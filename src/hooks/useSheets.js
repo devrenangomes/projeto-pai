@@ -300,11 +300,71 @@ export const useSheets = () => {
         }
     };
 
-    // Import CSV (Simplified: just creates new sheet with data)
+    // Import CSV
     const importCSV = (file) => {
-        // ... (We need to refactor importCSV to use createEmptySheet then bulk insert rows)
-        // Leaving as TODO or basic alert for now to keep migration simple
-        alert("Importação CSV precisa ser reimplementada para Cloud. (Em breve)");
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const text = e.target.result;
+                const parsed = processCSV(text, file.name);
+
+                if (!parsed || !parsed.columns || parsed.columns.length === 0) {
+                    alert('Arquivo inválido ou vazio.');
+                    return;
+                }
+
+                setIsLoading(true);
+
+                // 1. Create Sheet with correct columns
+                const { data: sheetData, error: sheetError } = await supabase
+                    .from('sheets')
+                    .insert([{
+                        name: parsed.name,
+                        columns: parsed.columns
+                    }])
+                    .select()
+                    .single();
+
+                if (sheetError) throw sheetError;
+
+                // 2. Prepare Rows for Bulk Insert
+                const rowsToInsert = parsed.data.map(row => {
+                    // Remove the temp ID from parser, Supabase generates its own
+                    const { id, ...rowData } = row;
+                    return {
+                        sheet_id: sheetData.id,
+                        data: rowData
+                    };
+                });
+
+                // 3. Bulk Insert
+                const { data: rowsData, error: rowsError } = await supabase
+                    .from('rows')
+                    .insert(rowsToInsert)
+                    .select();
+
+                if (rowsError) throw rowsError;
+
+                // 4. Update Local State
+                const formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+
+                const newSheetComplete = {
+                    ...sheetData,
+                    data: formattedRows
+                };
+
+                setSheets(prev => [...prev, newSheetComplete]);
+                setActiveSheetId(sheetData.id);
+                // alert(`Lista "${parsed.name}" importada com sucesso!`);
+
+            } catch (error) {
+                console.error('CSV Import Error:', error);
+                alert('Erro ao importar CSV.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        reader.readAsText(file);
     };
 
     return {
