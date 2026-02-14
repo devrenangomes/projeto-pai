@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
+import { processCSV } from '../utils/csvParser';
 
 export const useSheets = () => {
     const [sheets, setSheets] = useState([]);
@@ -355,11 +356,11 @@ export const useSheets = () => {
 
                 setSheets(prev => [...prev, newSheetComplete]);
                 setActiveSheetId(sheetData.id);
-                // alert(`Lista "${parsed.name}" importada com sucesso!`);
+                alert(`Lista "${parsed.name}" importada com sucesso!`);
 
             } catch (error) {
                 console.error('CSV Import Error:', error);
-                alert('Erro ao importar CSV.');
+                alert(`Erro ao importar CSV: ${error.message || JSON.stringify(error)}`);
             } finally {
                 setIsLoading(false);
             }
