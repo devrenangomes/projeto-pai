@@ -34,12 +34,12 @@ const ExportModal = ({ isOpen, onClose, onExport, activeSheetName }) => {
                 {/* Format Selection */}
                 <div>
                     <label className="block text-sm font-medium text-slate-700 mb-3">Formato do Arquivo</label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <button
                             onClick={() => setFormat('xlsx')}
                             className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${format === 'xlsx'
-                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                    : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200 hover:bg-slate-50'
+                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200 hover:bg-slate-50'
                                 }`}
                         >
                             <FileSpreadsheet size={24} className="mb-2" />
@@ -49,8 +49,8 @@ const ExportModal = ({ isOpen, onClose, onExport, activeSheetName }) => {
                         <button
                             onClick={() => setFormat('pdf')}
                             className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${format === 'pdf'
-                                    ? 'border-rose-500 bg-rose-50 text-rose-700'
-                                    : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200 hover:bg-slate-50'
+                                ? 'border-rose-500 bg-rose-50 text-rose-700'
+                                : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200 hover:bg-slate-50'
                                 }`}
                         >
                             <FileText size={24} className="mb-2" />
@@ -60,8 +60,8 @@ const ExportModal = ({ isOpen, onClose, onExport, activeSheetName }) => {
                         <button
                             onClick={() => setFormat('csv')}
                             className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${format === 'csv'
-                                    ? 'border-amber-500 bg-amber-50 text-amber-700'
-                                    : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200 hover:bg-slate-50'
+                                ? 'border-amber-500 bg-amber-50 text-amber-700'
+                                : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200 hover:bg-slate-50'
                                 }`}
                         >
                             <Table size={24} className="mb-2" />
@@ -80,8 +80,8 @@ const ExportModal = ({ isOpen, onClose, onExport, activeSheetName }) => {
                                     key={t.id}
                                     onClick={() => setTheme(t.id)}
                                     className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${theme === t.id
-                                            ? 'border-emerald-500 bg-emerald-50 shadow-sm ring-1 ring-emerald-500/20'
-                                            : 'border-slate-200 bg-white hover:border-slate-300'
+                                        ? 'border-emerald-500 bg-emerald-50 shadow-sm ring-1 ring-emerald-500/20'
+                                        : 'border-slate-200 bg-white hover:border-slate-300'
                                         }`}
                                 >
                                     <div className={`w-8 h-8 rounded-full shadow-sm shrink-0 ${t.color}`}></div>

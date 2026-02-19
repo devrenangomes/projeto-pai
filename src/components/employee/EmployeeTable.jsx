@@ -41,7 +41,7 @@ const EmployeeTable = ({
     };
 
     return (
-        <div className="flex-1 overflow-auto bg-slate-50 p-6">
+        <div className="flex-1 overflow-auto bg-slate-50 p-2 sm:p-6">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-w-full inline-block">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">

@@ -41,6 +41,7 @@ const App = () => {
     // UI State
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Handlers involving UI state or composite actions
     const handleExport = (format, theme) => {
@@ -102,10 +103,12 @@ const App = () => {
                 onCreateSheet={createEmptySheet}
                 onDeleteSheet={deleteSheet}
                 onImportCSV={importCSV}
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
             />
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden">
+            <main className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
                 <Header
                     activeSheet={activeSheet}
                     searchTerm={searchTerm}
@@ -113,6 +116,7 @@ const App = () => {
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     onExportClick={() => setIsExportModalOpen(true)}
                     onAddNewRow={addNewRow}
+                    onToggleSidebar={() => setIsSidebarOpen(true)}
                 />
 
                 <EmployeeTable
