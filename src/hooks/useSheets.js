@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { processCSV } from '../utils/csvParser';
 
-export const useSheets = () => {
+export const useSheets = (session) => {
     const [sheets, setSheets] = useState([]);
     const [activeSheetId, setActiveSheetId] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -11,8 +11,13 @@ export const useSheets = () => {
 
     // Fetch initial data
     useEffect(() => {
-        fetchSheets();
-    }, []);
+        if (session?.user) {
+            fetchSheets();
+        } else {
+            setSheets([]);
+            setIsLoading(false);
+        }
+    }, [session]);
 
     const fetchSheets = async () => {
         setIsLoading(true);
@@ -26,17 +31,6 @@ export const useSheets = () => {
             if (sheetsError) throw sheetsError;
 
             // For each sheet, get its rows
-            // Note: In a larger app, we might fetch rows only for the active sheet.
-            // But to keep the "all in memory" feel for now, let's fetch everything or optimize later.
-            // Optimization: Let's fetch rows for ALL sheets to maintain current architecture simplicity
-            // or better, let's just fetch everything joined? Supabase JS handles this.
-
-            // Actually, fetching rows for all sheets might be heavy. 
-            // Let's modify the architecture slightly: 
-            // 1. Fetch Sheets Metadata
-            // 2. Fetch Rows for ALL sheets (since client-side filtering/switching is fast)
-            // Or better: Let's join them.
-
             const { data: rowsData, error: rowsError } = await supabase
                 .from('rows')
                 .select('*');
@@ -55,14 +49,13 @@ export const useSheets = () => {
                 setSheets(fullSheets);
                 if (!activeSheetId) setActiveSheetId(fullSheets[0].id);
             } else {
-                // If no sheets, create default? Or leave empty?
-                // Let's Create Default if empty
+                // If no sheets, create default for the user
                 await createEmptySheet('Lista Inicial');
             }
 
         } catch (error) {
             console.error('Error fetching data:', error);
-            alert('Erro ao carregar dados do servidor.');
+            // Don't alert on 401/403, just empty state if needed, but here we expect success
         } finally {
             setIsLoading(false);
         }
@@ -74,12 +67,15 @@ export const useSheets = () => {
 
     // Sheets CRUD
     const createEmptySheet = async (nameOrEvent = 'Nova Lista') => {
+        if (!session?.user) return;
+
         const name = (typeof nameOrEvent === 'string') ? nameOrEvent : 'Nova Lista';
 
         try {
             const newSheet = {
                 name: name,
-                columns: ['Coluna A', 'Coluna B', 'Coluna C']
+                columns: ['Coluna A', 'Coluna B', 'Coluna C'],
+                user_id: session.user.id
             };
 
             const { data, error } = await supabase
@@ -251,9 +247,7 @@ export const useSheets = () => {
             // Optimize: Update only changed rows? Or just update all locally and background save?
             // "Background save" of 1000 rows might kill the network.
             // Strategy: We will update the LOCAL state immediately.
-            // And we will trigger individual row updates? Too slow.
-            // Better Strategy: If we change a column name, we should run a SQL script? No user access.
-            // We have to iterate and update.
+            // And we will iterate and update.
 
             // This is the downside of JSONB for columns.
             // Let's do a bulk update if possible or just update the local state and warn user?
@@ -321,7 +315,8 @@ export const useSheets = () => {
                     .from('sheets')
                     .insert([{
                         name: parsed.name,
-                        columns: parsed.columns
+                        columns: parsed.columns,
+                        user_id: session?.user?.id
                     }])
                     .select()
                     .single();

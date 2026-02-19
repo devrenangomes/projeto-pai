@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Layout, Upload, Plus, Table as TableIcon, X } from 'lucide-react';
+import { Layout, Upload, Plus, Table as TableIcon, X, LogOut, User } from 'lucide-react';
 import Button from '../ui/Button';
 
 const Sidebar = ({
@@ -10,7 +10,9 @@ const Sidebar = ({
     onDeleteSheet,
     onImportCSV,
     isOpen,
-    onClose
+    onClose,
+    onSignOut,
+    user
 }) => {
     const fileInputRef = useRef(null);
 
@@ -31,14 +33,12 @@ const Sidebar = ({
     return (
         <>
             {/* Backdrop for mobile */}
-            {
-                isOpen && (
-                    <div
-                        className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
-                        onClick={onClose}
-                    />
-                )
-            }
+            {isOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+                    onClick={onClose}
+                />
+            )}
 
             <aside className={sidebarClasses}>
                 <input
@@ -121,8 +121,28 @@ const Sidebar = ({
                     ))}
                 </div>
 
-                <div className="p-4 border-t border-slate-100 text-xs text-slate-400">
-                    {sheets.length} listas ativas
+                <div className="p-4 border-t border-slate-100 bg-slate-50">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
+                            <User size={16} />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                            <p className="text-sm font-medium text-slate-700 truncate" title={user?.email}>
+                                {user?.email}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                                {sheets.length} listas
+                            </p>
+                        </div>
+                    </div>
+                    <Button
+                        variant="secondary"
+                        onClick={onSignOut}
+                        className="w-full justify-center text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-100"
+                    >
+                        <LogOut size={16} />
+                        Sair
+                    </Button>
                 </div>
             </aside>
         </>

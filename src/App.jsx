@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
-import { useSheets } from './hooks/useSheets';
-import { useSheetFilters } from './hooks/useSheetFilters';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import EmployeeTable from './components/employee/EmployeeTable';
 import EmployeeSettings from './components/employee/EmployeeSettings';
 import ExportModal from './components/employee/ExportModal';
-import { exportToCSV, exportToExcel, exportToPDF } from './utils/exportUtils';
+import Auth from './components/auth/Auth';
+import { useSheets } from './hooks/useSheets';
+import { useSheetFilters } from './hooks/useSheetFilters';
+import { exportToExcel, exportToPDF, exportToCSV } from './utils/exportUtils';
 
 const App = () => {
+    // Auth State
+    const [session, setSession] = useState(null);
+    const [loadingSession, setLoadingSession] = useState(true);
+
     // Logic & State Hooks
     const {
         sheets,
@@ -28,7 +34,7 @@ const App = () => {
         saveEdit,
         setEditingId,
         isLoading
-    } = useSheets();
+    } = useSheets(session);
 
     const {
         searchTerm,
@@ -42,6 +48,26 @@ const App = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            setLoadingSession(false);
+        });
+
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const handleSignOut = async () => {
+        await supabase.auth.signOut();
+        setSession(null);
+    };
 
     // Handlers involving UI state or composite actions
     const handleExport = (format, theme) => {
@@ -64,6 +90,18 @@ const App = () => {
         }
         deleteRow(rowId);
     };
+
+    if (loadingSession) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-slate-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+            </div>
+        );
+    }
+
+    if (!session) {
+        return <Auth />;
+    }
 
     if (isLoading) {
         return (
@@ -105,6 +143,8 @@ const App = () => {
                 onImportCSV={importCSV}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
+                onSignOut={handleSignOut}
+                user={session.user}
             />
 
             {/* Main Content */}
