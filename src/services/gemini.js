@@ -28,9 +28,9 @@ async function fileToGenerativePart(file) {
 }
 
 /**
- * Processes an image using Gemini 2.0 Flash to extract a list of items.
+ * Processes an image using Gemini to extract tabular data dynamically.
  * @param {File} imageFile - The image file to process.
- * @returns {Promise<Array<{name: string, value: string, category: string}>>} - Structured data.
+ * @returns {Promise<{ columns: string[], rows: Record<string, string>[] }>}
  */
 export const processImageWithGemini = async (imageFile) => {
     try {
@@ -39,19 +39,28 @@ export const processImageWithGemini = async (imageFile) => {
         const imagePart = await fileToGenerativePart(imageFile);
 
         const prompt = `
-      Analyze this image (which is likely a receipt, list, or invoice) and extract the items.
-      Return ONLY a raw JSON array (no markdown code blocks, no explanation).
-      Each object in the array should have:
-      - "name": Using the item description. Fix typos if obvious.
-      - "value": The price/value formatted as "R$ 0,00". If missing, use "R$ 0,00".
-      - "category": Infer a short category (e.g., "Alimentação", "Transporte", "Material") based on the name.
+Analyze this image carefully. It may be a table, list, receipt, spreadsheet, or any structured document.
 
-      Example output:
-      [
-        {"name": "Item A", "value": "R$ 10,00", "category": "Material"},
-        {"name": "Item B", "value": "R$ 5,50", "category": "Alimentação"}
-      ]
-    `;
+Your task:
+1. Identify what columns/fields appear in the content (e.g., "Nome", "Cargo", "Matrícula", "Valor", "Data", etc.)
+2. Extract each row of data into those columns.
+
+Return ONLY a raw JSON object (no markdown, no explanation) in this exact format:
+{
+  "columns": ["Column1", "Column2", "Column3"],
+  "rows": [
+    {"Column1": "value", "Column2": "value", "Column3": "value"},
+    {"Column1": "value", "Column2": "value", "Column3": "value"}
+  ]
+}
+
+Rules:
+- Use the language of the document for column names (if it's in Portuguese, use Portuguese column names).
+- Fix obvious typos in the data.
+- If a cell is empty or missing, use an empty string "".
+- Infer the most logical column names from the document structure.
+- If the image is just a plain list with no clear columns, use a single column called "Item".
+        `;
 
         const result = await model.generateContent([prompt, imagePart]);
         const response = await result.response;
@@ -59,15 +68,25 @@ export const processImageWithGemini = async (imageFile) => {
 
         console.log("Raw Gemini Response:", text);
 
-        // Clean up potential markdown code blocks if the model ignores "no markdown"
-        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        // Strip potential markdown code blocks
+        const cleanedText = text
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
 
-        return JSON.parse(cleanedText);
+        const parsed = JSON.parse(cleanedText);
+
+        if (!parsed.columns || !Array.isArray(parsed.columns) || !parsed.rows || !Array.isArray(parsed.rows)) {
+            throw new Error("Formato inválido retornado pela IA.");
+        }
+
+        return parsed; // { columns: string[], rows: object[] }
+
     } catch (error) {
         if (error.message?.includes('429') || error.message?.includes('RESOURCE_EXHAUSTED')) {
-            throw new Error("Muitas tentativas. O plano gratuito da IA atingiu o limite. Aguarde 1 minuto.");
+            throw new Error("Limite da IA atingido. Aguarde 1 minuto e tente novamente.");
         }
         console.error("Gemini API Error:", error);
-        throw new Error("Falha ao processar imagem com Gemini AI. Tente novamente.");
+        throw new Error("Falha ao processar imagem com Gemini AI. Verifique o console para mais detalhes.");
     }
 };

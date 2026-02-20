@@ -25,6 +25,7 @@ const App = () => {
         createEmptySheet,
         deleteSheet,
         importCSV,
+        importFromAI,
         updateSheetSettings,
         addNewRow,
         deleteRow,
@@ -93,9 +94,9 @@ const App = () => {
         deleteRow(rowId);
     };
 
-    const handleImportList = (listName, listData) => {
-        createEmptySheet(listName, listData);
+    const handleImportList = async (listName, columns, rows) => {
         setIsImageImporterOpen(false);
+        await importFromAI(listName, columns, rows);
     };
 
     if (loadingSession) {
