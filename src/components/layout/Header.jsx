@@ -13,9 +13,11 @@ const Header = ({
     onToggleSidebar,
     onCameraClick
 }) => {
+    const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+
     return (
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 sm:px-6 shrink-0 z-10 relative">
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className={`flex items-center gap-3 sm:gap-4 ${isSearchOpen ? 'hidden sm:flex' : 'flex'}`}>
                 <button
                     onClick={onToggleSidebar}
                     className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
@@ -39,27 +41,46 @@ const Header = ({
                 </Button>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
-                <div className="relative hidden xs:block">
+            <div className={`flex items-center gap-2 sm:gap-3 ${isSearchOpen ? 'w-full' : ''}`}>
+
+                {/* Mobile Search Input (overlay) or Desktop Input */}
+                <div className={`${isSearchOpen ? 'flex flex-1' : 'hidden sm:block'} relative`}>
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <Input
                         value={searchTerm}
                         onChange={(e) => onSearchChange(e.target.value)}
                         placeholder="Buscar..."
-                        className="pl-9 pr-4 py-2 w-32 sm:w-48 md:w-64"
+                        className="pl-9 pr-4 py-2 w-full sm:w-48 md:w-64"
+                        autoFocus={isSearchOpen}
+                        onBlur={() => {
+                            if (!searchTerm) setIsSearchOpen(false);
+                        }}
                     />
                 </div>
+
+                {/* Mobile Search Toggle Button */}
+                {!isSearchOpen && (
+                    <button
+                        onClick={() => setIsSearchOpen(true)}
+                        className="sm:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
+                    >
+                        <Search size={20} />
+                    </button>
+                )}
+
                 <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block"></div>
                 <Button
                     variant="ghost"
                     onClick={onExportClick}
                     title="Exportar Dados"
+                    className={isSearchOpen ? 'hidden' : 'flex'}
                 >
                     <Download size={18} />
                 </Button>
                 <Button
                     variant="primary"
                     onClick={onAddNewRow}
+                    className={isSearchOpen ? 'hidden' : 'flex'}
                 >
                     <Plus size={16} />
                     <span className="hidden sm:inline">Novo Item</span>
@@ -68,7 +89,7 @@ const Header = ({
                 <Button
                     variant="secondary"
                     onClick={onCameraClick}
-                    className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                    className={`text-emerald-600 border-emerald-200 hover:bg-emerald-50 ${isSearchOpen ? 'hidden' : 'flex'}`}
                     title="Importar de Foto"
                 >
                     <Camera size={18} />
