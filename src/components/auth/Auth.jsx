@@ -42,7 +42,7 @@ const Auth = () => {
                         </div>
                         <h1 className="text-2xl font-bold text-slate-800">StaffGrid</h1>
                         <p className="text-slate-500 mt-2 text-center">
-                            {isSignUp ? 'Crie sua conta para começar' : 'Bem-vindo de volta'}
+                            Bem-vindo de volta
                         </p>
                     </div>
 
