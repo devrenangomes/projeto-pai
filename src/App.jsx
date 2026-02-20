@@ -137,7 +137,7 @@ const App = () => {
                 isOpen={isExportModalOpen}
                 onClose={() => setIsExportModalOpen(false)}
                 onExport={handleExport}
-                activeSheetName={activeSheet.name}
+                activeSheetName={activeSheet ? activeSheet.name : ''}
             />
 
             {/* Sidebar */}
@@ -163,29 +163,54 @@ const App = () => {
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
-                <Header
-                    activeSheet={activeSheet}
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    onOpenSettings={() => setIsSettingsOpen(true)}
-                    onExportClick={() => setIsExportModalOpen(true)}
-                    onAddNewRow={addNewRow}
-                    onMenuClick={() => setIsSidebarOpen(true)}
-                    onCameraClick={() => setIsImageImporterOpen(true)}
-                />
+                {activeSheet ? (
+                    <>
+                        <Header
+                            activeSheet={activeSheet}
+                            searchTerm={searchTerm}
+                            onSearchChange={setSearchTerm}
+                            onOpenSettings={() => setIsSettingsOpen(true)}
+                            onExportClick={() => setIsExportModalOpen(true)}
+                            onAddNewRow={addNewRow}
+                            onMenuClick={() => setIsSidebarOpen(true)}
+                            onCameraClick={() => setIsImageImporterOpen(true)}
+                        />
 
-                <EmployeeTable
-                    activeSheet={activeSheet}
-                    filteredData={filteredData}
-                    sortConfig={sortConfig}
-                    onSort={handleSort}
-                    editingId={editingId}
-                    onEditClick={startEditing}
-                    onSaveEdit={saveEdit}
-                    onDeleteRow={handleDeleteRowWrapper}
-                    editFormData={editFormData}
-                    setEditFormData={setEditFormData}
-                />
+                        <EmployeeTable
+                            activeSheet={activeSheet}
+                            filteredData={filteredData}
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                            editingId={editingId}
+                            onEditClick={startEditing}
+                            onSaveEdit={saveEdit}
+                            onDeleteRow={handleDeleteRowWrapper}
+                            editFormData={editFormData}
+                            setEditFormData={setEditFormData}
+                        />
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50">
+                        <div className="max-w-md space-y-4">
+                            <h2 className="text-2xl font-bold text-slate-800">Bem-vindo ao Gestor de Listas!</h2>
+                            <p className="text-slate-600">
+                                Parece que você ainda não tem nenhuma lista. Crie uma nova lista para começar.
+                            </p>
+                            <button
+                                onClick={() => createEmptySheet('Minha Primeira Lista')}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition w-full"
+                            >
+                                Criar Nova Lista
+                            </button>
+                            <button
+                                onClick={() => setIsSidebarOpen(true)}
+                                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 transition w-full"
+                            >
+                                Abrir Menu
+                            </button>
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );
