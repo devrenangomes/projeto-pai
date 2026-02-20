@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Settings, Plus, Download, Menu } from 'lucide-react';
+import { Search, Settings, Plus, Download, Menu, Camera } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
@@ -10,7 +10,8 @@ const Header = ({
     onOpenSettings,
     onExportClick,
     onAddNewRow,
-    onToggleSidebar
+    onToggleSidebar,
+    onCameraClick
 }) => {
     return (
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 sm:px-6 shrink-0 z-10 relative">
@@ -62,6 +63,16 @@ const Header = ({
                 >
                     <Plus size={16} />
                     <span className="hidden sm:inline">Novo Item</span>
+                </Button>
+                <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+                <Button
+                    variant="secondary"
+                    onClick={onCameraClick}
+                    className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                    title="Importar de Foto"
+                >
+                    <Camera size={18} />
+                    <span className="hidden sm:inline ml-2">Foto</span>
                 </Button>
             </div>
         </header>

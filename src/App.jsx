@@ -6,6 +6,7 @@ import EmployeeTable from './components/employee/EmployeeTable';
 import EmployeeSettings from './components/employee/EmployeeSettings';
 import ExportModal from './components/employee/ExportModal';
 import Auth from './components/auth/Auth';
+import { ImageImporter } from './components/features/ImageImporter';
 import { useSheets } from './hooks/useSheets';
 import { useSheetFilters } from './hooks/useSheetFilters';
 import { exportToExcel, exportToPDF, exportToCSV } from './utils/exportUtils';
@@ -48,6 +49,7 @@ const App = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isImageImporterOpen, setIsImageImporterOpen] = useState(false);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -89,6 +91,11 @@ const App = () => {
             setEditingId(null);
         }
         deleteRow(rowId);
+    };
+
+    const handleImportList = (listName, listData) => {
+        createEmptySheet(listName, listData);
+        setIsImageImporterOpen(false);
     };
 
     if (loadingSession) {
@@ -147,6 +154,13 @@ const App = () => {
                 user={session.user}
             />
 
+            {isImageImporterOpen && (
+                <ImageImporter
+                    onComplete={handleImportList}
+                    onCancel={() => setIsImageImporterOpen(false)}
+                />
+            )}
+
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
                 <Header
@@ -156,7 +170,8 @@ const App = () => {
                     onOpenSettings={() => setIsSettingsOpen(true)}
                     onExportClick={() => setIsExportModalOpen(true)}
                     onAddNewRow={addNewRow}
-                    onToggleSidebar={() => setIsSidebarOpen(true)}
+                    onMenuClick={() => setIsSidebarOpen(true)}
+                    onCameraClick={() => setIsImageImporterOpen(true)}
                 />
 
                 <EmployeeTable

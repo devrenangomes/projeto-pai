@@ -21,12 +21,14 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.95.3",
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.564.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5"
   }
 }
