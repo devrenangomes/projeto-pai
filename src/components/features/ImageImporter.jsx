@@ -1,15 +1,30 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Image as ImageIcon, Check, X, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Camera, Image as ImageIcon, Check, X, Loader2, Sparkles, AlertCircle, PlusCircle, FolderInput } from 'lucide-react';
 import Button from '../ui/Button';
 import { processImageWithGemini } from '../../services/gemini';
 
-export const ImageImporter = ({ onComplete, onCancel }) => {
+/**
+ * ImageImporter
+ *
+ * Props:
+ *  - onComplete(mode, payload)
+ *      mode === 'new'      → payload = { listName, columns, rows }
+ *      mode === 'append'   → payload = { targetSheetId, rows }
+ *  - onCancel()
+ *  - sheets: Array of existing sheets [{ id, name, columns }]
+ */
+export const ImageImporter = ({ onComplete, onCancel, sheets = [] }) => {
     const [image, setImage] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [columns, setColumns] = useState([]);
     const [rows, setRows] = useState([]);
     const [listName, setListName] = useState('');
     const [error, setError] = useState(null);
+
+    // Mode: 'new' | 'append'
+    const [importMode, setImportMode] = useState('new');
+    const [targetSheetId, setTargetSheetId] = useState(sheets[0]?.id ?? '');
+
     const fileInputRef = useRef(null);
     const cameraInputRef = useRef(null);
 
@@ -30,7 +45,6 @@ export const ImageImporter = ({ onComplete, onCancel }) => {
             const data = await processImageWithGemini(file);
             setColumns(data.columns);
             setRows(data.rows);
-            // Suggest a list name based on number of rows found
             setListName(`Lista IA (${data.rows.length} registros)`);
         } catch (err) {
             console.error("Erro no processamento:", err);
@@ -52,8 +66,13 @@ export const ImageImporter = ({ onComplete, onCancel }) => {
     };
 
     const handleConfirm = () => {
-        if (!listName.trim()) return;
-        onComplete(listName.trim(), columns, rows);
+        if (importMode === 'new') {
+            if (!listName.trim()) return;
+            onComplete('new', { listName: listName.trim(), columns, rows });
+        } else {
+            if (!targetSheetId) return;
+            onComplete('append', { targetSheetId, rows });
+        }
     };
 
     const handleReset = () => {
@@ -65,6 +84,9 @@ export const ImageImporter = ({ onComplete, onCancel }) => {
     };
 
     const hasResults = image && !isProcessing && columns.length > 0;
+    const canConfirm = rows.length > 0 && (
+        importMode === 'new' ? listName.trim() !== '' : targetSheetId !== ''
+    );
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -142,24 +164,82 @@ export const ImageImporter = ({ onComplete, onCancel }) => {
                     {/* Results */}
                     {hasResults && (
                         <div className="space-y-4">
-                            {/* List name input */}
-                            <div className="flex items-center gap-3">
-                                <div className="flex-1">
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Nome da lista</label>
-                                    <input
-                                        type="text"
-                                        value={listName}
-                                        onChange={(e) => setListName(e.target.value)}
-                                        placeholder="Ex: Funcionários Jan/2026"
-                                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
-                                </div>
-                                <div className="text-right pt-5">
-                                    <button onClick={handleReset} className="text-xs text-blue-600 hover:underline">Nova Foto</button>
+
+                            {/* ── Mode Selector ── */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Destino da importação</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* New list option */}
+                                    <button
+                                        onClick={() => setImportMode('new')}
+                                        className={`flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all text-sm font-medium ${importMode === 'new'
+                                                ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                                : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                    >
+                                        <PlusCircle size={18} className={importMode === 'new' ? 'text-purple-600' : 'text-slate-400'} />
+                                        Criar nova lista
+                                    </button>
+
+                                    {/* Existing list option */}
+                                    <button
+                                        onClick={() => setImportMode('append')}
+                                        disabled={sheets.length === 0}
+                                        className={`flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed ${importMode === 'append'
+                                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                                : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                    >
+                                        <FolderInput size={18} className={importMode === 'append' ? 'text-blue-600' : 'text-slate-400'} />
+                                        Adicionar à lista existente
+                                    </button>
                                 </div>
                             </div>
 
-                            {/* Table */}
+                            {/* ── New list: name input ── */}
+                            {importMode === 'new' && (
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Nome da nova lista</label>
+                                        <input
+                                            type="text"
+                                            value={listName}
+                                            onChange={(e) => setListName(e.target.value)}
+                                            placeholder="Ex: Funcionários Jan/2026"
+                                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                    <div className="text-right pt-5">
+                                        <button onClick={handleReset} className="text-xs text-blue-600 hover:underline">Nova Foto</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── Append: existing list dropdown ── */}
+                            {importMode === 'append' && (
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Selecionar lista existente</label>
+                                        <select
+                                            value={targetSheetId}
+                                            onChange={(e) => setTargetSheetId(e.target.value)}
+                                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                        >
+                                            {sheets.map(sheet => (
+                                                <option key={sheet.id} value={sheet.id}>{sheet.name}</option>
+                                            ))}
+                                        </select>
+                                        <p className="text-xs text-slate-400 mt-1">
+                                            As colunas da lista selecionada serão usadas. Dados não mapeados serão ignorados.
+                                        </p>
+                                    </div>
+                                    <div className="text-right pt-5">
+                                        <button onClick={handleReset} className="text-xs text-blue-600 hover:underline">Nova Foto</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Table preview */}
                             <div className="border rounded-lg overflow-auto bg-white shadow-sm max-h-64">
                                 <table className="w-full text-sm text-left min-w-max">
                                     <thead className="bg-slate-50 text-slate-500 border-b sticky top-0">
@@ -217,11 +297,17 @@ export const ImageImporter = ({ onComplete, onCancel }) => {
                         <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
                         <Button
                             onClick={handleConfirm}
-                            disabled={!listName.trim() || rows.length === 0}
-                            className="bg-purple-600 hover:bg-purple-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={!canConfirm}
+                            className={`gap-2 text-white disabled:opacity-50 disabled:cursor-not-allowed ${importMode === 'new'
+                                    ? 'bg-purple-600 hover:bg-purple-700'
+                                    : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
                         >
                             <Check size={18} />
-                            Criar Lista ({rows.length} registros)
+                            {importMode === 'new'
+                                ? `Criar Lista (${rows.length} registros)`
+                                : `Adicionar à lista (${rows.length} registros)`
+                            }
                         </Button>
                     </div>
                 )}
