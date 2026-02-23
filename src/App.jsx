@@ -7,6 +7,8 @@ import EmployeeSettings from './components/employee/EmployeeSettings';
 import ExportModal from './components/employee/ExportModal';
 import Auth from './components/auth/Auth';
 import { ImageImporter } from './components/features/ImageImporter';
+import MergeListModal from './components/features/MergeListModal';
+import CSVImportModal from './components/features/CSVImportModal';
 import { useSheets } from './hooks/useSheets';
 import { useSheetFilters } from './hooks/useSheetFilters';
 import { exportToExcel, exportToPDF, exportToCSV } from './utils/exportUtils';
@@ -24,8 +26,11 @@ const App = () => {
         setActiveSheetId,
         createEmptySheet,
         deleteSheet,
+        parseCSVFile,
         importCSV,
+        appendCSVToSheet,
         importFromAI,
+        appendRowsToSheet,
         updateSheetSettings,
         addNewRow,
         deleteRow,
@@ -35,6 +40,7 @@ const App = () => {
         startEditing,
         saveEdit,
         setEditingId,
+        mergeLists,
         isLoading
     } = useSheets(session);
 
@@ -51,6 +57,9 @@ const App = () => {
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isImageImporterOpen, setIsImageImporterOpen] = useState(false);
+    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+    // CSV import modal: holds the parsed CSV object while the user chooses destination
+    const [csvImportData, setCsvImportData] = useState(null);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -94,9 +103,39 @@ const App = () => {
         deleteRow(rowId);
     };
 
-    const handleImportList = async (listName, columns, rows) => {
+    const handleImportList = async (mode, payload) => {
         setIsImageImporterOpen(false);
-        await importFromAI(listName, columns, rows);
+        if (mode === 'new') {
+            const { listName, columns, rows } = payload;
+            await importFromAI(listName, columns, rows);
+        } else if (mode === 'append') {
+            const { targetSheetId, rows } = payload;
+            await appendRowsToSheet(targetSheetId, rows);
+        }
+    };
+
+    // Called by Sidebar when user picks a .csv file
+    const handleCSVFileSelected = async (file) => {
+        try {
+            const parsed = await parseCSVFile(file);
+            setCsvImportData(parsed); // opens the CSVImportModal
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
+    // Called by CSVImportModal on confirm
+    const handleCSVImportConfirm = async (mode, payload) => {
+        setCsvImportData(null);
+        if (mode === 'new') {
+            await importCSV(payload.parsed);
+        } else if (mode === 'append') {
+            await appendCSVToSheet(payload.targetSheetId, payload.rows);
+        }
+    };
+
+    const handleMergeLists = async (sourceIds) => {
+        await mergeLists(sourceIds);
     };
 
     if (loadingSession) {
@@ -148,17 +187,37 @@ const App = () => {
                 setActiveSheetId={setActiveSheetId}
                 onCreateSheet={createEmptySheet}
                 onDeleteSheet={deleteSheet}
-                onImportCSV={importCSV}
+                onImportCSV={handleCSVFileSelected}
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}
                 onSignOut={handleSignOut}
                 user={session.user}
+                onMergeClick={() => setIsMergeModalOpen(true)}
             />
 
             {isImageImporterOpen && (
                 <ImageImporter
                     onComplete={handleImportList}
                     onCancel={() => setIsImageImporterOpen(false)}
+                    sheets={sheets}
+                />
+            )}
+
+            <MergeListModal
+                isOpen={isMergeModalOpen}
+                onClose={() => setIsMergeModalOpen(false)}
+                sheets={sheets}
+                activeSheet={activeSheet}
+                onMerge={handleMergeLists}
+            />
+
+            {/* CSV Import Modal — shown after file is picked, before saving */}
+            {csvImportData && (
+                <CSVImportModal
+                    parsed={csvImportData}
+                    sheets={sheets}
+                    onConfirm={handleCSVImportConfirm}
+                    onCancel={() => setCsvImportData(null)}
                 />
             )}
 

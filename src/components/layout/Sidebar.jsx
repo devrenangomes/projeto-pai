@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Layout, Upload, Plus, Table as TableIcon, X, LogOut, User } from 'lucide-react';
+import { Layout, Upload, Plus, Table as TableIcon, X, LogOut, User, GitMerge } from 'lucide-react';
 import Button from '../ui/Button';
 
 const Sidebar = ({
@@ -12,7 +12,8 @@ const Sidebar = ({
     isOpen,
     onClose,
     onSignOut,
-    user
+    user,
+    onMergeClick
 }) => {
     const fileInputRef = useRef(null);
 
@@ -84,6 +85,17 @@ const Sidebar = ({
                     >
                         <Plus size={16} />
                         Nova Lista
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            onMergeClick();
+                            onClose();
+                        }}
+                        className="w-full justify-center mt-2 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                    >
+                        <GitMerge size={16} />
+                        Mesclar Listas
                     </Button>
                 </div>
 
