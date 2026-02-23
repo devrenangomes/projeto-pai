@@ -363,7 +363,7 @@ export const useSheets = (session) => {
         reader.readAsText(file);
     };
 
-    // Import from AI (Gemini image extraction)
+    // Import from AI (Gemini image extraction) — creates a NEW sheet
     const importFromAI = async (name, columns, rows) => {
         if (!session?.user) return;
 
@@ -384,7 +384,6 @@ export const useSheets = (session) => {
 
             // 2. Prepare rows for bulk insert
             const rowsToInsert = rows.map(row => {
-                // Ensure every column key is present (fill missing with '')
                 const rowData = {};
                 columns.forEach(col => {
                     rowData[col] = row[col] ?? '';
@@ -417,6 +416,118 @@ export const useSheets = (session) => {
         }
     };
 
+    // Append rows extracted by AI to an EXISTING sheet
+    const appendRowsToSheet = async (targetSheetId, rows) => {
+        if (!session?.user) return;
+
+        const targetSheet = sheets.find(s => s.id === targetSheetId);
+        if (!targetSheet) {
+            alert('Lista de destino não encontrada.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            // Prepare rows using the TARGET sheet's existing columns
+            const rowsToInsert = rows.map(row => {
+                const rowData = {};
+                targetSheet.columns.forEach(col => {
+                    // Try exact match first, then case-insensitive
+                    const matchedKey = Object.keys(row).find(
+                        k => k.toLowerCase() === col.toLowerCase()
+                    );
+                    rowData[col] = matchedKey ? (row[matchedKey] ?? '') : '';
+                });
+                return { sheet_id: targetSheetId, data: rowData };
+            });
+
+            if (rowsToInsert.length === 0) {
+                alert('Nenhuma linha para adicionar.');
+                return;
+            }
+
+            const { data: rowsData, error: rowsError } = await supabase
+                .from('rows')
+                .insert(rowsToInsert)
+                .select();
+
+            if (rowsError) throw rowsError;
+
+            const formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+
+            // Update local state by appending new rows to the existing sheet
+            setSheets(prev => prev.map(sheet => {
+                if (sheet.id === targetSheetId) {
+                    return { ...sheet, data: [...sheet.data, ...formattedRows] };
+                }
+                return sheet;
+            }));
+            setActiveSheetId(targetSheetId);
+
+        } catch (error) {
+            console.error('Append Rows Error:', error);
+            alert(`Erro ao adicionar linhas à lista: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Merge Lists: copy rows from source sheets into the active sheet
+    const mergeLists = async (sourceSheetIds) => {
+        if (!activeSheet || sourceSheetIds.length === 0) return;
+
+        setIsLoading(true);
+        try {
+            const targetColumns = activeSheet.columns;
+
+            // Collect rows from each source sheet (already in local state)
+            const rowsToInsert = [];
+            for (const sourceId of sourceSheetIds) {
+                const sourceSheet = sheets.find(s => s.id === sourceId);
+                if (!sourceSheet) continue;
+
+                sourceSheet.data.forEach(row => {
+                    // Normalize: map source values to target columns by exact name match;
+                    // missing columns are filled with empty string.
+                    const rowData = {};
+                    targetColumns.forEach(col => {
+                        rowData[col] = row[col] ?? '';
+                    });
+                    rowsToInsert.push({ sheet_id: activeSheet.id, data: rowData });
+                });
+            }
+
+            if (rowsToInsert.length === 0) {
+                alert('Nenhuma linha encontrada nas listas de origem.');
+                return;
+            }
+
+            // Bulk insert
+            const { data: insertedRows, error } = await supabase
+                .from('rows')
+                .insert(rowsToInsert)
+                .select();
+
+            if (error) throw error;
+
+            const formattedRows = insertedRows.map(r => ({ id: r.id, ...r.data }));
+
+            // Update local state
+            setSheets(prev => prev.map(sheet => {
+                if (sheet.id === activeSheet.id) {
+                    return { ...sheet, data: [...sheet.data, ...formattedRows] };
+                }
+                return sheet;
+            }));
+
+        } catch (error) {
+            console.error('Merge Error:', error);
+            alert(`Erro ao mesclar listas: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return {
         sheets,
         activeSheet,
@@ -426,6 +537,7 @@ export const useSheets = (session) => {
         deleteSheet,
         importCSV,
         importFromAI,
+        appendRowsToSheet,
         updateSheetSettings,
         addNewRow,
         deleteRow,
@@ -435,6 +547,7 @@ export const useSheets = (session) => {
         setEditFormData,
         startEditing,
         saveEdit,
+        mergeLists,
         isLoading
     };
 };

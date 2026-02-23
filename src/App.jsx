@@ -7,6 +7,7 @@ import EmployeeSettings from './components/employee/EmployeeSettings';
 import ExportModal from './components/employee/ExportModal';
 import Auth from './components/auth/Auth';
 import { ImageImporter } from './components/features/ImageImporter';
+import MergeListModal from './components/features/MergeListModal';
 import { useSheets } from './hooks/useSheets';
 import { useSheetFilters } from './hooks/useSheetFilters';
 import { exportToExcel, exportToPDF, exportToCSV } from './utils/exportUtils';
@@ -26,6 +27,7 @@ const App = () => {
         deleteSheet,
         importCSV,
         importFromAI,
+        appendRowsToSheet,
         updateSheetSettings,
         addNewRow,
         deleteRow,
@@ -35,6 +37,7 @@ const App = () => {
         startEditing,
         saveEdit,
         setEditingId,
+        mergeLists,
         isLoading
     } = useSheets(session);
 
@@ -51,6 +54,7 @@ const App = () => {
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isImageImporterOpen, setIsImageImporterOpen] = useState(false);
+    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -94,9 +98,19 @@ const App = () => {
         deleteRow(rowId);
     };
 
-    const handleImportList = async (listName, columns, rows) => {
+    const handleImportList = async (mode, payload) => {
         setIsImageImporterOpen(false);
-        await importFromAI(listName, columns, rows);
+        if (mode === 'new') {
+            const { listName, columns, rows } = payload;
+            await importFromAI(listName, columns, rows);
+        } else if (mode === 'append') {
+            const { targetSheetId, rows } = payload;
+            await appendRowsToSheet(targetSheetId, rows);
+        }
+    };
+
+    const handleMergeLists = async (sourceIds) => {
+        await mergeLists(sourceIds);
     };
 
     if (loadingSession) {
@@ -153,14 +167,24 @@ const App = () => {
                 onClose={() => setIsSidebarOpen(false)}
                 onSignOut={handleSignOut}
                 user={session.user}
+                onMergeClick={() => setIsMergeModalOpen(true)}
             />
 
             {isImageImporterOpen && (
                 <ImageImporter
                     onComplete={handleImportList}
                     onCancel={() => setIsImageImporterOpen(false)}
+                    sheets={sheets}
                 />
             )}
+
+            <MergeListModal
+                isOpen={isMergeModalOpen}
+                onClose={() => setIsMergeModalOpen(false)}
+                sheets={sheets}
+                activeSheet={activeSheet}
+                onMerge={handleMergeLists}
+            />
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
