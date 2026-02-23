@@ -295,73 +295,123 @@ export const useSheets = (session) => {
         }
     };
 
-    // Import CSV
-    const importCSV = (file) => {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const text = e.target.result;
-                const parsed = processCSV(text, file.name);
-
-                if (!parsed || !parsed.columns || parsed.columns.length === 0) {
-                    alert('Arquivo inválido ou vazio.');
-                    return;
+    // ── CSV: read file and parse (does NOT save to DB) ───────────────────────
+    const parseCSVFile = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const text = e.target.result;
+                    const parsed = processCSV(text, file.name);
+                    if (!parsed || !parsed.columns || parsed.columns.length === 0) {
+                        reject(new Error('Arquivo inválido ou vazio.'));
+                    } else {
+                        resolve(parsed);
+                    }
+                } catch (err) {
+                    reject(err);
                 }
-
-                setIsLoading(true);
-
-                // 1. Create Sheet with correct columns
-                const { data: sheetData, error: sheetError } = await supabase
-                    .from('sheets')
-                    .insert([{
-                        name: parsed.name,
-                        columns: parsed.columns,
-                        user_id: session?.user?.id
-                    }])
-                    .select()
-                    .single();
-
-                if (sheetError) throw sheetError;
-
-                // 2. Prepare Rows for Bulk Insert
-                const rowsToInsert = parsed.data.map(row => {
-                    // Remove the temp ID from parser, Supabase generates its own
-                    const { id, ...rowData } = row;
-                    return {
-                        sheet_id: sheetData.id,
-                        data: rowData
-                    };
-                });
-
-                // 3. Bulk Insert
-                const { data: rowsData, error: rowsError } = await supabase
-                    .from('rows')
-                    .insert(rowsToInsert)
-                    .select();
-
-                if (rowsError) throw rowsError;
-
-                // 4. Update Local State
-                const formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
-
-                const newSheetComplete = {
-                    ...sheetData,
-                    data: formattedRows
-                };
-
-                setSheets(prev => [...prev, newSheetComplete]);
-                setActiveSheetId(sheetData.id);
-                alert(`Lista "${parsed.name}" importada com sucesso!`);
-
-            } catch (error) {
-                console.error('CSV Import Error:', error);
-                alert(`Erro ao importar CSV: ${error.message || JSON.stringify(error)}`);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        reader.readAsText(file);
+            };
+            reader.onerror = () => reject(new Error('Erro ao ler arquivo.'));
+            reader.readAsText(file);
+        });
     };
+
+    // ── CSV: create a NEW sheet from a parsed CSV object ─────────────────────
+    const importCSV = async (parsed) => {
+        if (!session?.user) return;
+        setIsLoading(true);
+        try {
+            const { data: sheetData, error: sheetError } = await supabase
+                .from('sheets')
+                .insert([{
+                    name: parsed.name,
+                    columns: parsed.columns,
+                    user_id: session.user.id
+                }])
+                .select()
+                .single();
+
+            if (sheetError) throw sheetError;
+
+            const rowsToInsert = parsed.data.map(row => {
+                const { id, ...rowData } = row;
+                return { sheet_id: sheetData.id, data: rowData };
+            });
+
+            const { data: rowsData, error: rowsError } = await supabase
+                .from('rows')
+                .insert(rowsToInsert)
+                .select();
+
+            if (rowsError) throw rowsError;
+
+            const formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+            const newSheet = { ...sheetData, data: formattedRows };
+
+            setSheets(prev => [...prev, newSheet]);
+            setActiveSheetId(sheetData.id);
+        } catch (error) {
+            console.error('CSV Import Error:', error);
+            alert(`Erro ao importar CSV: ${error.message || JSON.stringify(error)}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // ── CSV: APPEND rows from a parsed CSV into an existing sheet ─────────────
+    // Maps columns case-insensitively; ignores CSV columns not in target sheet.
+    const appendCSVToSheet = async (targetSheetId, csvRows) => {
+        if (!session?.user) return;
+
+        const targetSheet = sheets.find(s => s.id === targetSheetId);
+        if (!targetSheet) {
+            alert('Lista de destino não encontrada.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const rowsToInsert = csvRows.map(csvRow => {
+                const rowData = {};
+                targetSheet.columns.forEach(col => {
+                    // Case-insensitive key lookup
+                    const matchedKey = Object.keys(csvRow).find(
+                        k => k.toLowerCase() === col.toLowerCase()
+                    );
+                    rowData[col] = matchedKey ? (csvRow[matchedKey] ?? '') : '';
+                });
+                return { sheet_id: targetSheetId, data: rowData };
+            });
+
+            if (rowsToInsert.length === 0) {
+                alert('Nenhuma linha para adicionar.');
+                return;
+            }
+
+            const { data: rowsData, error: rowsError } = await supabase
+                .from('rows')
+                .insert(rowsToInsert)
+                .select();
+
+            if (rowsError) throw rowsError;
+
+            const formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+
+            setSheets(prev => prev.map(sheet =>
+                sheet.id === targetSheetId
+                    ? { ...sheet, data: [...sheet.data, ...formattedRows] }
+                    : sheet
+            ));
+            setActiveSheetId(targetSheetId);
+        } catch (error) {
+            console.error('Append CSV Error:', error);
+            alert(`Erro ao adicionar linhas: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
 
     // Import from AI (Gemini image extraction) — creates a NEW sheet
     const importFromAI = async (name, columns, rows) => {
@@ -535,7 +585,9 @@ export const useSheets = (session) => {
         setActiveSheetId,
         createEmptySheet,
         deleteSheet,
+        parseCSVFile,
         importCSV,
+        appendCSVToSheet,
         importFromAI,
         appendRowsToSheet,
         updateSheetSettings,
