@@ -363,6 +363,60 @@ export const useSheets = (session) => {
         reader.readAsText(file);
     };
 
+    // Import from AI (Gemini image extraction)
+    const importFromAI = async (name, columns, rows) => {
+        if (!session?.user) return;
+
+        setIsLoading(true);
+        try {
+            // 1. Create the sheet with AI-detected columns
+            const { data: sheetData, error: sheetError } = await supabase
+                .from('sheets')
+                .insert([{
+                    name,
+                    columns,
+                    user_id: session.user.id
+                }])
+                .select()
+                .single();
+
+            if (sheetError) throw sheetError;
+
+            // 2. Prepare rows for bulk insert
+            const rowsToInsert = rows.map(row => {
+                // Ensure every column key is present (fill missing with '')
+                const rowData = {};
+                columns.forEach(col => {
+                    rowData[col] = row[col] ?? '';
+                });
+                return { sheet_id: sheetData.id, data: rowData };
+            });
+
+            // 3. Bulk insert (only if there are rows)
+            let formattedRows = [];
+            if (rowsToInsert.length > 0) {
+                const { data: rowsData, error: rowsError } = await supabase
+                    .from('rows')
+                    .insert(rowsToInsert)
+                    .select();
+
+                if (rowsError) throw rowsError;
+                formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+            }
+
+            // 4. Update local state
+            const newSheet = { ...sheetData, data: formattedRows };
+            setSheets(prev => [...prev, newSheet]);
+            setActiveSheetId(sheetData.id);
+
+        } catch (error) {
+            console.error('AI Import Error:', error);
+            alert(`Erro ao importar lista da IA: ${error.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return {
         sheets,
         activeSheet,
@@ -371,6 +425,7 @@ export const useSheets = (session) => {
         createEmptySheet,
         deleteSheet,
         importCSV,
+        importFromAI,
         updateSheetSettings,
         addNewRow,
         deleteRow,
