@@ -12,7 +12,12 @@ const EmployeeTable = ({
     onSaveEdit,
     onDeleteRow,
     editFormData,
-    setEditFormData
+    setEditFormData,
+    selectedRows,
+    onSelectRow,
+    onSelectAll,
+    onBatchDelete,
+    onBatchEdit
 }) => {
 
     const renderCellContent = (colName, value) => {
@@ -47,6 +52,14 @@ const EmployeeTable = ({
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="px-6 py-3 w-12 text-center text-slate-500">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                        checked={filteredData.length > 0 && selectedRows.length === filteredData.length}
+                                        onChange={(e) => onSelectAll(e.target.checked)}
+                                    />
+                                </th>
                                 {activeSheet.columns.map((col, idx) => (
                                     <th
                                         key={idx}
@@ -65,59 +78,70 @@ const EmployeeTable = ({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredData.length > 0 ? filteredData.map((row) => (
-                                <tr key={row.id} className="hover:bg-slate-50/80 group">
-                                    {editingId === row.id ? (
-                                        <>
-                                            {activeSheet.columns.map(col => (
-                                                <td key={col} className="px-6 py-3">
-                                                    <input
-                                                        className="w-full bg-white border border-emerald-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-100 outline-none"
-                                                        value={editFormData[col] || ''}
-                                                        onChange={(e) => setEditFormData({ ...editFormData, [col]: e.target.value })}
-                                                    />
+                            {filteredData.length > 0 ? filteredData.map((row) => {
+                                const isSelected = selectedRows.includes(row.id);
+                                return (
+                                    <tr key={row.id} className={`hover:bg-slate-50/80 group transition-colors ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                                        <td className="px-6 py-3 text-center">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                                                checked={isSelected}
+                                                onChange={() => onSelectRow(row.id)}
+                                            />
+                                        </td>
+                                        {editingId === row.id ? (
+                                            <>
+                                                {activeSheet.columns.map(col => (
+                                                    <td key={col} className="px-6 py-3">
+                                                        <input
+                                                            className="w-full bg-white border border-emerald-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-emerald-100 outline-none"
+                                                            value={editFormData[col] || ''}
+                                                            onChange={(e) => setEditFormData({ ...editFormData, [col]: e.target.value })}
+                                                        />
+                                                    </td>
+                                                ))}
+                                                <td className="px-6 py-3 text-right whitespace-nowrap">
+                                                    <div className="flex justify-end gap-1">
+                                                        <button onClick={onSaveEdit} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded bg-white border border-emerald-200 shadow-sm">
+                                                            <Check size={14} />
+                                                        </button>
+                                                        <button onClick={() => onDeleteRow(row.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded bg-white border border-rose-200 shadow-sm">
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
                                                 </td>
-                                            ))}
-                                            <td className="px-6 py-3 text-right whitespace-nowrap">
-                                                <div className="flex justify-end gap-1">
-                                                    <button onClick={onSaveEdit} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded bg-white border border-emerald-200 shadow-sm">
-                                                        <Check size={14} />
-                                                    </button>
-                                                    <button onClick={() => onDeleteRow(row.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded bg-white border border-rose-200 shadow-sm">
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </>
-                                    ) : (
-                                        <>
-                                            {activeSheet.columns.map(col => (
-                                                <td key={col} className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
-                                                    {renderCellContent(col, row[col])}
+                                            </>
+                                        ) : (
+                                            <>
+                                                {activeSheet.columns.map(col => (
+                                                    <td key={col} className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
+                                                        {renderCellContent(col, row[col])}
+                                                    </td>
+                                                ))}
+                                                <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={() => onEditClick(row)}
+                                                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-all"
+                                                        >
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => onDeleteRow(row.id)}
+                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
                                                 </td>
-                                            ))}
-                                            <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => onEditClick(row)}
-                                                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-all"
-                                                    >
-                                                        <Edit2 size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onDeleteRow(row.id)}
-                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </>
-                                    )}
-                                </tr>
-                            )) : (
+                                            </>
+                                        )}
+                                    </tr>
+                                );
+                            }) : (
                                 <tr>
-                                    <td colSpan={activeSheet.columns.length + 1} className="px-6 py-12 text-center text-slate-400">
+                                    <td colSpan={activeSheet.columns.length + 2} className="px-6 py-12 text-center text-slate-400">
                                         <div className="flex flex-col items-center gap-2">
                                             <FileSpreadsheet size={32} className="text-slate-200" />
                                             <p>Lista vazia ou nenhum resultado encontrado.</p>
@@ -129,6 +153,32 @@ const EmployeeTable = ({
                     </table>
                 </div>
             </div>
+
+            {/* Batch Action Bar */}
+            {selectedRows.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-5 z-40">
+                    <span className="font-medium">
+                        {selectedRows.length} {selectedRows.length === 1 ? 'linha selecionada' : 'linhas selecionadas'}
+                    </span>
+                    <div className="h-4 w-px bg-slate-600 hidden sm:block"></div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={onBatchEdit}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium hover:bg-slate-700 rounded-lg transition-colors border border-transparent hover:border-slate-600"
+                        >
+                            <Edit2 size={16} className="text-blue-400" />
+                            <span className="hidden sm:inline">Editar em Lote</span>
+                        </button>
+                        <button
+                            onClick={onBatchDelete}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium hover:bg-slate-700 rounded-lg transition-colors border border-transparent hover:border-slate-600"
+                        >
+                            <Trash2 size={16} className="text-rose-400" />
+                            <span className="hidden sm:inline">Excluir</span>
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

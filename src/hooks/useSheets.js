@@ -53,7 +53,7 @@ export const useSheets = (session) => {
                 const sheetRows = rowsData
                     .filter(r => r.sheet_id === sheet.id)
                     .map(r => ({ id: r.id, ...r.data })); // Flatten JSONB data
-                return { ...sheet, data: sheetRows };
+                return { ...sheet, columns: sheet.columns || [], data: sheetRows };
             });
 
             if (fullSheets.length > 0) {
@@ -611,6 +611,96 @@ export const useSheets = (session) => {
         }
     };
 
+    // ── BATCH OPERATIONS ─────────────────────────────────────────────────────
+
+    const batchDeleteRows = async (rowIds) => {
+        if (!activeSheet || rowIds.length === 0) return;
+
+        if (window.confirm(`Tem certeza que deseja remover ${rowIds.length} linhas?`)) {
+            setIsLoading(true);
+            try {
+                // Delete in chunks for large arrays
+                const deleteChunkSize = 500;
+                for (let i = 0; i < rowIds.length; i += deleteChunkSize) {
+                    const chunk = rowIds.slice(i, i + deleteChunkSize);
+                    const { error } = await supabase
+                        .from('rows')
+                        .delete()
+                        .in('id', chunk);
+
+                    if (error) throw error;
+                }
+
+                setSheets(prev => prev.map(sheet => {
+                    if (sheet.id === activeSheetId) {
+                        return {
+                            ...sheet,
+                            data: sheet.data.filter(row => !rowIds.includes(row.id))
+                        };
+                    }
+                    return sheet;
+                }));
+            } catch (error) {
+                console.error('Batch Delete Error:', error);
+                alert('Erro ao excluir linhas em lote.');
+            } finally {
+                setIsLoading(false);
+            }
+        }
+    };
+
+    const batchEditRows = async (rowIds, updates) => {
+        if (!activeSheet || rowIds.length === 0 || Object.keys(updates).length === 0) return;
+
+        setIsLoading(true);
+        try {
+            // Get current specific rows to patch data rather than reset it
+            const currentRowsMap = new Map(activeSheet.data.filter(r => rowIds.includes(r.id)).map(r => [r.id, r]));
+
+            const preparedUpdates = rowIds.map(id => {
+                const currentRow = currentRowsMap.get(id) || {};
+                // Omit the `id` from the spread otherwise we put it in the JSONB
+                const { id: _, ...clearedData } = currentRow;
+                return {
+                    id,
+                    data: { ...clearedData, ...updates }
+                };
+            });
+
+            const updateChunkSize = 200;
+            for (let i = 0; i < preparedUpdates.length; i += updateChunkSize) {
+                const chunk = preparedUpdates.slice(i, i + updateChunkSize);
+                // Perform concurrent updates within the chunk
+                await Promise.all(chunk.map(u =>
+                    supabase.from('rows').update({ data: u.data }).eq('id', u.id)
+                ));
+            }
+
+            // Update Local State
+            setSheets(prev => prev.map(sheet => {
+                if (sheet.id === activeSheetId) {
+                    return {
+                        ...sheet,
+                        data: sheet.data.map(row => {
+                            if (rowIds.includes(row.id)) {
+                                const { id: _, ...clearedData } = row;
+                                return { ...row, ...updates };
+                            }
+                            return row;
+                        })
+                    };
+                }
+                return sheet;
+            }));
+
+        } catch (error) {
+            console.error('Batch Edit Error:', error);
+            alert('Erro ao atualizar linhas em lote.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return {
         sheets,
         activeSheet,
@@ -633,6 +723,8 @@ export const useSheets = (session) => {
         startEditing,
         saveEdit,
         mergeLists,
+        batchDeleteRows,
+        batchEditRows,
         isLoading
     };
 };

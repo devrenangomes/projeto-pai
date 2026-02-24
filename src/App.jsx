@@ -9,6 +9,7 @@ import Auth from './components/auth/Auth';
 import { ImageImporter } from './components/features/ImageImporter';
 import MergeListModal from './components/features/MergeListModal';
 import CSVImportModal from './components/features/CSVImportModal';
+import BatchEditModal from './components/employee/BatchEditModal';
 import { useSheets } from './hooks/useSheets';
 import { useSheetFilters } from './hooks/useSheetFilters';
 import { exportToExcel, exportToPDF, exportToCSV } from './utils/exportUtils';
@@ -41,6 +42,8 @@ const App = () => {
         saveEdit,
         setEditingId,
         mergeLists,
+        batchDeleteRows,
+        batchEditRows,
         isLoading
     } = useSheets(session);
 
@@ -58,8 +61,17 @@ const App = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isImageImporterOpen, setIsImageImporterOpen] = useState(false);
     const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+    const [isBatchEditModalOpen, setIsBatchEditModalOpen] = useState(false);
     // CSV import modal: holds the parsed CSV object while the user chooses destination
     const [csvImportData, setCsvImportData] = useState(null);
+
+    // Batch Selection State
+    const [selectedRows, setSelectedRows] = useState([]);
+
+    // Reset selection when changing sheets
+    useEffect(() => {
+        setSelectedRows([]);
+    }, [activeSheetId]);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -138,6 +150,31 @@ const App = () => {
         await mergeLists(sourceIds);
     };
 
+    const handleSelectRow = (rowId) => {
+        setSelectedRows(prev =>
+            prev.includes(rowId) ? prev.filter(id => id !== rowId) : [...prev, rowId]
+        );
+    };
+
+    const handleSelectAll = (checked) => {
+        if (checked) {
+            setSelectedRows(filteredData.map(r => r.id));
+        } else {
+            setSelectedRows([]);
+        }
+    };
+
+    const handleBatchDelete = async () => {
+        await batchDeleteRows(selectedRows);
+        setSelectedRows([]);
+    };
+
+    const handleBatchEditSave = async (updates) => {
+        await batchEditRows(selectedRows, updates);
+        setIsBatchEditModalOpen(false);
+        setSelectedRows([]);
+    };
+
     if (loadingSession) {
         return (
             <div className="flex items-center justify-center h-screen bg-slate-50">
@@ -211,6 +248,17 @@ const App = () => {
                 onMerge={handleMergeLists}
             />
 
+            {/* Batch Edit Modal */}
+            {activeSheet && (
+                <BatchEditModal
+                    isOpen={isBatchEditModalOpen}
+                    onClose={() => setIsBatchEditModalOpen(false)}
+                    columns={activeSheet.columns}
+                    selectedCount={selectedRows.length}
+                    onSave={handleBatchEditSave}
+                />
+            )}
+
             {/* CSV Import Modal — shown after file is picked, before saving */}
             {csvImportData && (
                 <CSVImportModal
@@ -247,6 +295,11 @@ const App = () => {
                             onDeleteRow={handleDeleteRowWrapper}
                             editFormData={editFormData}
                             setEditFormData={setEditFormData}
+                            selectedRows={selectedRows}
+                            onSelectRow={handleSelectRow}
+                            onSelectAll={handleSelectAll}
+                            onBatchDelete={handleBatchDelete}
+                            onBatchEdit={() => setIsBatchEditModalOpen(true)}
                         />
                     </>
                 ) : (
