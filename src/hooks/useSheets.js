@@ -31,11 +31,22 @@ export const useSheets = (session) => {
             if (sheetsError) throw sheetsError;
 
             // For each sheet, get its rows
-            const { data: rowsData, error: rowsError } = await supabase
-                .from('rows')
-                .select('*');
+            let rowsData = [];
+            let from = 0;
+            const limit = 1000;
+            while (true) {
+                const { data, error: rowsError } = await supabase
+                    .from('rows')
+                    .select('*')
+                    .range(from, from + limit - 1);
 
-            if (rowsError) throw rowsError;
+                if (rowsError) throw rowsError;
+                if (!data || data.length === 0) break;
+
+                rowsData.push(...data);
+                if (data.length < limit) break;
+                from += limit;
+            }
 
             // Merge data
             const fullSheets = sheetsData.map(sheet => {
@@ -269,10 +280,14 @@ export const useSheets = (session) => {
                 return { id: row.id, data: newRowData };
             });
 
-            // Perform updates in parallel (batching would be better)
-            await Promise.all(updates.map(u =>
-                supabase.from('rows').update({ data: u.data }).eq('id', u.id)
-            ));
+            // Perform updates in chunks
+            const updateChunkSize = 200;
+            for (let i = 0; i < updates.length; i += updateChunkSize) {
+                const chunk = updates.slice(i, i + updateChunkSize);
+                await Promise.all(chunk.map(u =>
+                    supabase.from('rows').update({ data: u.data }).eq('id', u.id)
+                ));
+            }
 
             // Update Local State
             const updatedSheets = sheets.map(sheet => {
@@ -339,14 +354,18 @@ export const useSheets = (session) => {
                 return { sheet_id: sheetData.id, data: rowData };
             });
 
-            const { data: rowsData, error: rowsError } = await supabase
-                .from('rows')
-                .insert(rowsToInsert)
-                .select();
+            let formattedRows = [];
+            const insertChunkSize = 500;
+            for (let i = 0; i < rowsToInsert.length; i += insertChunkSize) {
+                const chunk = rowsToInsert.slice(i, i + insertChunkSize);
+                const { data: chunkData, error: chunkError } = await supabase
+                    .from('rows')
+                    .insert(chunk)
+                    .select();
 
-            if (rowsError) throw rowsError;
-
-            const formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+                if (chunkError) throw chunkError;
+                formattedRows.push(...chunkData.map(r => ({ id: r.id, ...r.data })));
+            }
             const newSheet = { ...sheetData, data: formattedRows };
 
             setSheets(prev => [...prev, newSheet]);
@@ -389,14 +408,18 @@ export const useSheets = (session) => {
                 return;
             }
 
-            const { data: rowsData, error: rowsError } = await supabase
-                .from('rows')
-                .insert(rowsToInsert)
-                .select();
+            let formattedRows = [];
+            const insertChunkSize = 500;
+            for (let i = 0; i < rowsToInsert.length; i += insertChunkSize) {
+                const chunk = rowsToInsert.slice(i, i + insertChunkSize);
+                const { data: chunkData, error: chunkError } = await supabase
+                    .from('rows')
+                    .insert(chunk)
+                    .select();
 
-            if (rowsError) throw rowsError;
-
-            const formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+                if (chunkError) throw chunkError;
+                formattedRows.push(...chunkData.map(r => ({ id: r.id, ...r.data })));
+            }
 
             setSheets(prev => prev.map(sheet =>
                 sheet.id === targetSheetId
@@ -443,14 +466,16 @@ export const useSheets = (session) => {
 
             // 3. Bulk insert (only if there are rows)
             let formattedRows = [];
-            if (rowsToInsert.length > 0) {
-                const { data: rowsData, error: rowsError } = await supabase
+            const insertChunkSize = 500;
+            for (let i = 0; i < rowsToInsert.length; i += insertChunkSize) {
+                const chunk = rowsToInsert.slice(i, i + insertChunkSize);
+                const { data: chunkData, error: chunkError } = await supabase
                     .from('rows')
-                    .insert(rowsToInsert)
+                    .insert(chunk)
                     .select();
 
-                if (rowsError) throw rowsError;
-                formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+                if (chunkError) throw chunkError;
+                formattedRows.push(...chunkData.map(r => ({ id: r.id, ...r.data })));
             }
 
             // 4. Update local state
@@ -496,14 +521,18 @@ export const useSheets = (session) => {
                 return;
             }
 
-            const { data: rowsData, error: rowsError } = await supabase
-                .from('rows')
-                .insert(rowsToInsert)
-                .select();
+            let formattedRows = [];
+            const insertChunkSize = 500;
+            for (let i = 0; i < rowsToInsert.length; i += insertChunkSize) {
+                const chunk = rowsToInsert.slice(i, i + insertChunkSize);
+                const { data: chunkData, error: chunkError } = await supabase
+                    .from('rows')
+                    .insert(chunk)
+                    .select();
 
-            if (rowsError) throw rowsError;
-
-            const formattedRows = rowsData.map(r => ({ id: r.id, ...r.data }));
+                if (chunkError) throw chunkError;
+                formattedRows.push(...chunkData.map(r => ({ id: r.id, ...r.data })));
+            }
 
             // Update local state by appending new rows to the existing sheet
             setSheets(prev => prev.map(sheet => {
@@ -552,15 +581,19 @@ export const useSheets = (session) => {
                 return;
             }
 
-            // Bulk insert
-            const { data: insertedRows, error } = await supabase
-                .from('rows')
-                .insert(rowsToInsert)
-                .select();
+            // Bulk insert in chunks
+            let formattedRows = [];
+            const insertChunkSize = 500;
+            for (let i = 0; i < rowsToInsert.length; i += insertChunkSize) {
+                const chunk = rowsToInsert.slice(i, i + insertChunkSize);
+                const { data: chunkData, error: chunkError } = await supabase
+                    .from('rows')
+                    .insert(chunk)
+                    .select();
 
-            if (error) throw error;
-
-            const formattedRows = insertedRows.map(r => ({ id: r.id, ...r.data }));
+                if (chunkError) throw chunkError;
+                formattedRows.push(...chunkData.map(r => ({ id: r.id, ...r.data })));
+            }
 
             // Update local state
             setSheets(prev => prev.map(sheet => {
